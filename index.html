@@ -84,6 +84,40 @@
 </header>
 
 <main>
+  <section class="panel" style="margin-bottom:14px">
+  <h2>☁️ Account e sincronizzazione</h2>
+
+  <div id="authForm">
+    <label for="authEmail">Email</label>
+    <input id="authEmail" type="email"
+           autocomplete="email" placeholder="La tua email">
+
+    <label for="authPassword">Password</label>
+    <input id="authPassword" type="password"
+           autocomplete="current-password"
+           placeholder="Almeno 6 caratteri">
+
+    <div class="row">
+      <button class="primary" id="signInBtn" type="button">
+        Accedi
+      </button>
+      <button class="secondary" id="signUpBtn" type="button">
+        Registrati
+      </button>
+    </div>
+  </div>
+
+  <div id="authUser" hidden>
+    <p>Account: <strong id="authUserEmail"></strong></p>
+    <button class="secondary" id="signOutBtn" type="button">
+      Esci dall'account
+    </button>
+  </div>
+
+  <p id="cloudStatus" class="small" role="status">
+    Connessione non ancora verificata.
+  </p>
+</section>
   <div class="notice">
     <strong>Versione iniziale:</strong> i prezzi sono inseriti manualmente.
     Non è ancora collegata a Cardmarket e non esegue acquisti automatici.
@@ -165,10 +199,23 @@
   </div>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 "use strict";
 
 const STORAGE_KEY = "pokeflip_data_v1";
+
+const SUPABASE_URL ="https://ukjgcayqjdokagekplws.supabase.co";
+const SUPABASE_KEY = "sb_publishable_0e08WjrKUppbHiRvHjD7pA_FaN5X7W7";
+
+const sb = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
+
+let currentUser = null;
+let cloudReady = false;
+let cloudSaveTimer = null;  
 
 const initialState = {
   capital: 100,
@@ -195,9 +242,212 @@ function loadState() {
   }
 }
 
+function setCloudStatus(message) {
+  document.getElementById("cloudStatus").textContent = message;
+}
+
+function updateAuthUI() {
+  document.getElementById("authForm").hidden = !!currentUser;
+  document.getElementById("authUser").hidden = !currentUser;
+
+  document.getElementById("authUserEmail").textContent =
+    currentUser ? currentUser.email : "";
+}
+
+async function writeCloudState(userId) {
+  const { error } = await sb
+    .from("pokeflip_state")
+    .upsert({
+      user_id: userId,
+      payload: state,
+      updated_at: new Date().toISOString()
+    }, {
+      onConflict: "user_id"
+    });
+
+  if (error) throw error;
+}
+
+function scheduleCloudSave() {
+  if (!currentUser || !cloudReady) return;
+
+  clearTimeout(cloudSaveTimer);
+
+  cloudSaveTimer = setTimeout(async () => {
+    try {
+      await writeCloudState(currentUser.id);
+      setCloudStatus("☁️ Sincronizzazione completata.");
+    } catch (error) {
+      setCloudStatus(
+        "Errore di sincronizzazione: " + error.message +
+        ". Esporta subito un backup JSON."
+      );
+    }
+  }, 700);
+}
+
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   render();
+  scheduleCloudSave();
+}
+
+async function loadCloudState(userId) {
+  cloudReady = false;
+
+  const { data, error } = await sb
+    .from("pokeflip_state")
+    .select("payload")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  if (data && data.payload) {
+    const saved = data.payload;
+
+    state = {
+      ...initialState,
+      ...saved,
+      cards: Array.isArray(saved.cards) ? saved.cards : [],
+      history: Array.isArray(saved.history) ? saved.history : []
+    };
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } else {
+    const hasLocalBackup = localStorage.getItem(STORAGE_KEY);
+
+    if (hasLocalBackup) {
+      const importLocal = confirm(
+        "Non esiste ancora un salvataggio cloud per questo account. " +
+        "Vuoi trasferire nel cloud i dati presenti in questo browser? " +
+        "Scegli Annulla per iniziare con dati vuoti."
+      );
+
+      if (!importLocal) {
+        state = structuredClone(initialState);
+      }
+    }
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    await writeCloudState(userId);
+  }
+
+  render();
+  cloudReady = true;
+  setCloudStatus("☁️ Account collegato. Dati caricati dal cloud.");
+}
+
+async function connectAccount(user) {
+  currentUser = user;
+  cloudReady = false;
+  updateAuthUI();
+  setCloudStatus("Caricamento dei dati dal cloud...");
+
+  try {
+    await loadCloudState(user.id);
+  } catch (error) {
+    cloudReady = false;
+    setCloudStatus(
+      "Impossibile caricare i dati: " + error.message
+    );
+  }
+}
+
+document.getElementById("signUpBtn").addEventListener("click", async () => {
+  const email = document.getElementById("authEmail").value.trim();
+  const password = document.getElementById("authPassword").value;
+
+  if (!email || !password) {
+    alert("Inserisci email e password.");
+    return;
+  }
+
+  try {
+    setCloudStatus("Registrazione in corso...");
+
+    const { data, error } = await sb.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo:
+          "https://pino690.github.io/Pokeflip/pokeflip-sync.html"
+      }
+    });
+
+    if (error) throw error;
+
+    if (data.session && data.user) {
+      await connectAccount(data.user);
+    } else {
+      setCloudStatus(
+        "Registrazione avviata. Controlla la tua email e conferma " +
+        "l'account, poi torna qui ed effettua l'accesso."
+      );
+    }
+  } catch (error) {
+    setCloudStatus("Errore registrazione: " + error.message);
+  }
+});
+
+document.getElementById("signInBtn").addEventListener("click", async () => {
+  const email = document.getElementById("authEmail").value.trim();
+  const password = document.getElementById("authPassword").value;
+
+  if (!email || !password) {
+    alert("Inserisci email e password.");
+    return;
+  }
+
+  try {
+    setCloudStatus("Accesso in corso...");
+
+    const { data, error } = await sb.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) throw error;
+
+    await connectAccount(data.user);
+  } catch (error) {
+    setCloudStatus("Errore accesso: " + error.message);
+  }
+});
+
+document.getElementById("signOutBtn").addEventListener("click", async () => {
+  try {
+    clearTimeout(cloudSaveTimer);
+
+    const { error } = await sb.auth.signOut();
+    if (error) throw error;
+
+    currentUser = null;
+    cloudReady = false;
+    updateAuthUI();
+    setCloudStatus("Hai effettuato la disconnessione.");
+  } catch (error) {
+    setCloudStatus("Errore disconnessione: " + error.message);
+  }
+});
+
+async function initAuth() {
+  updateAuthUI();
+
+  try {
+    const { data, error } = await sb.auth.getSession();
+    if (error) throw error;
+
+    if (data.session) {
+      await connectAccount(data.session.user);
+    } else {
+      setCloudStatus(
+        "Accedi o registrati per attivare la sincronizzazione."
+      );
+    }
+  } catch (error) {
+    setCloudStatus("Errore connessione: " + error.message);
+  }
 }
 
 function euros(value) {
@@ -409,6 +659,7 @@ document.getElementById("export").addEventListener("click", () => {
 
 render();
 calculate();
+initAuth();
 </script>
 </body>
 </html>
