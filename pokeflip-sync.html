@@ -1,0 +1,414 @@
+
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <title>PokéFlip</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #151e30;
+      --line: #30405a;
+      --text: #f5f7fb;
+      --muted: #aab6ca;
+      --gold: #f5c451;
+      --green: #64dda0;
+      --red: #ff858e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font: 16px/1.5 system-ui, sans-serif;
+    }
+    header, main { max-width: 1050px; margin: auto; padding: 18px; }
+    header { border-bottom: 1px solid var(--line); }
+    h1 { margin: 0; font-size: 27px; }
+    h2 { font-size: 18px; margin-top: 0; }
+    p, .muted { color: var(--muted); }
+    .notice {
+      background: #302816; border: 1px solid #76602c;
+      padding: 12px; border-radius: 12px; font-size: 13px;
+      margin: 16px 0;
+    }
+    .grid {
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .panel {
+      background: var(--panel); border: 1px solid var(--line);
+      padding: 16px; border-radius: 16px; min-width: 0;
+    }
+    .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+    .stat { background: var(--panel); padding: 14px; border-radius: 14px; border: 1px solid var(--line); }
+    .stat span { display: block; color: var(--muted); font-size: 12px; }
+    .stat strong { display: block; font-size: 22px; margin-top: 4px; overflow-wrap: anywhere; }
+    label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 5px; }
+    input, select, button {
+      font: inherit; width: 100%; border-radius: 10px; padding: 11px;
+    }
+    input, select {
+      color: var(--text); background: #0b1221; border: 1px solid var(--line);
+      min-width: 0;
+    }
+    button { cursor: pointer; border: 0; font-weight: 700; }
+    .primary { background: var(--gold); color: #171a21; margin-top: 12px; }
+    .secondary { background: #293750; color: var(--text); }
+    .danger { background: #492631; color: #ffd0d4; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .result { background: #0b1221; border: 1px solid var(--line); padding: 12px; border-radius: 12px; margin-top: 12px; }
+    .result strong { font-size: 22px; }
+    .green { color: var(--green); }
+    .red { color: var(--red); }
+    .cards { display: grid; gap: 10px; margin-top: 14px; }
+    .item { border: 1px solid var(--line); border-radius: 12px; padding: 12px; overflow-wrap: anywhere; }
+    .item h3 { margin: 0 0 5px; font-size: 16px; }
+    .item p { margin: 4px 0; font-size: 13px; }
+    .item-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+    .item-actions button { padding: 8px; font-size: 13px; }
+    .full { grid-column: 1 / -1; }
+    .small { font-size: 12px; }
+    @media (max-width: 650px) {
+      header, main { padding: 13px; }
+      .grid { grid-template-columns: 1fr; }
+      .full { grid-column: auto; }
+      .stat strong { font-size: 20px; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>🃏 PokéFlip</h1>
+  <div class="muted">Gestione del capitale Pokémon</div>
+</header>
+
+<main>
+  <div class="notice">
+    <strong>Versione iniziale:</strong> i prezzi sono inseriti manualmente.
+    Non è ancora collegata a Cardmarket e non esegue acquisti automatici.
+    I dati vengono salvati in questo browser.
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span>Liquidità disponibile</span><strong id="cash">€ 0,00</strong></div>
+    <div class="stat"><span>Riserva minima</span><strong id="reserve">€ 0,00</strong></div>
+    <div class="stat"><span>Carte in inventario</span><strong id="count">0</strong></div>
+    <div class="stat"><span>Profitto realizzato</span><strong id="profit">€ 0,00</strong></div>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>⚙️ Capitale e protezione</h2>
+      <label for="capital">Capitale iniziale (€)</label>
+      <input id="capital" type="number" min="0" step="0.01" value="100">
+
+      <label for="reservePct">Percentuale da mantenere come riserva</label>
+      <input id="reservePct" type="number" min="0" max="100" value="40">
+
+      <button class="primary" id="saveSettings">Salva impostazioni</button>
+      <div class="result">
+        <div class="muted">Budget massimo teorico per nuovi acquisti</div>
+        <strong id="budget">€ 60,00</strong>
+      </div>
+      <p class="small">Il budget è una soglia indicativa, non una raccomandazione ad acquistare.</p>
+    </section>
+
+    <section class="panel">
+      <h2>🔎 Calcola un'opportunità</h2>
+      <label for="name">Nome carta</label>
+      <input id="name" placeholder="Es. Pikachu">
+
+      <label for="buy">Prezzo d'acquisto (€)</label>
+      <input id="buy" type="number" min="0" step="0.01" value="10">
+
+      <label for="sell">Prezzo di rivendita stimato (€)</label>
+      <input id="sell" type="number" min="0" step="0.01" value="15">
+
+      <div class="row">
+        <div>
+          <label for="costs">Spedizione e altri costi (€)</label>
+          <input id="costs" type="number" min="0" step="0.01" value="1">
+        </div>
+        <div>
+          <label for="fee">Commissioni vendita (%)</label>
+          <input id="fee" type="number" min="0" max="100" step="0.1" value="5">
+        </div>
+      </div>
+
+      <label for="margin">Margine obiettivo sul costo (%)</label>
+      <input id="margin" type="number" min="0" step="1" value="15">
+
+      <div class="result">
+        <div class="muted">Profitto netto stimato</div>
+        <strong id="estimate">€ 3,25</strong>
+        <p id="maxPrice" class="muted">Prezzo massimo d'acquisto: —</p>
+      </div>
+      <button class="primary" id="addCard">Salva carta nell'inventario</button>
+    </section>
+
+    <section class="panel full">
+      <h2>📦 Inventario</h2>
+      <div id="cards" class="cards">
+        <p class="muted">Non hai ancora inserito carte.</p>
+      </div>
+    </section>
+
+    <section class="panel full">
+      <h2>🧾 Registro movimenti</h2>
+      <p class="small">Registra una vendita solo quando hai effettivamente ricevuto il pagamento.</p>
+      <div id="history" class="cards">
+        <p class="muted">Nessun movimento registrato.</p>
+      </div>
+      <button class="secondary" id="export">Esporta dati in JSON</button>
+    </section>
+  </div>
+</main>
+
+<script>
+"use strict";
+
+const STORAGE_KEY = "pokeflip_data_v1";
+
+const initialState = {
+  capital: 100,
+  reservePct: 40,
+  cards: [],
+  history: []
+};
+
+let state = loadState();
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return structuredClone(initialState);
+    const parsed = JSON.parse(saved);
+    return {
+      ...initialState,
+      ...parsed,
+      cards: Array.isArray(parsed.cards) ? parsed.cards : [],
+      history: Array.isArray(parsed.history) ? parsed.history : []
+    };
+  } catch {
+    return structuredClone(initialState);
+  }
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  render();
+}
+
+function euros(value) {
+  return new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: "EUR"
+  }).format(Number(value) || 0);
+}
+
+function value(id) {
+  return Number(document.getElementById(id).value) || 0;
+}
+
+function safeText(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;",
+    '"': "&quot;", "'": "&#39;"
+  })[char]);
+}
+
+function availableCash() {
+  return state.capital +
+    state.history.filter(x => x.type === "sale" || x.type === "deposit")
+      .reduce((sum, x) => sum + x.amount, 0) -
+    state.history.filter(x => x.type === "purchase" || x.type === "cost")
+      .reduce((sum, x) => sum + x.amount, 0);
+}
+
+function calculate() {
+  const buy = value("buy");
+  const sell = value("sell");
+  const costs = value("costs");
+  const feePct = value("fee");
+  const marginPct = value("margin");
+
+  if (buy < 0 || sell < 0 || costs < 0 ||
+      feePct < 0 || feePct > 100 || marginPct < 0) {
+    document.getElementById("estimate").textContent = "Controlla i valori";
+    document.getElementById("maxPrice").textContent = "";
+    return null;
+  }
+
+  const netSale = sell * (1 - feePct / 100) - costs;
+  const profit = netSale - buy;
+  const maxBuy = netSale / (1 + marginPct / 100);
+
+  document.getElementById("estimate").textContent = euros(profit);
+  document.getElementById("estimate").className = profit >= 0 ? "green" : "red";
+  document.getElementById("maxPrice").textContent =
+    "Prezzo massimo per il margine obiettivo: " + euros(Math.max(0, maxBuy));
+
+  return { buy, sell, costs, feePct, marginPct, profit, maxBuy };
+}
+
+function render() {
+  const reserve = state.capital * state.reservePct / 100;
+  const cash = availableCash();
+
+  document.getElementById("capital").value = state.capital;
+  document.getElementById("reservePct").value = state.reservePct;
+  document.getElementById("cash").textContent = euros(cash);
+  document.getElementById("reserve").textContent = euros(reserve);
+  document.getElementById("budget").textContent = euros(Math.max(0, cash - reserve));
+  document.getElementById("count").textContent =
+    state.cards.filter(card => card.status === "owned").length;
+
+  const realized = state.history
+    .filter(item => item.type === "sale")
+    .reduce((sum, item) => sum + (item.profit || 0), 0);
+
+  document.getElementById("profit").textContent = euros(realized);
+
+  const cards = document.getElementById("cards");
+  if (!state.cards.length) {
+    cards.innerHTML = '<p class="muted">Non hai ancora inserito carte.</p>';
+  } else {
+    cards.innerHTML = state.cards.map(card => `
+      <article class="item">
+        <h3>${safeText(card.name)}</h3>
+        <p>Acquisto: ${euros(card.buy)} · Rivendita stimata: ${euros(card.sell)}</p>
+        <p>Profitto stimato dopo costi: ${euros(card.estimate)}</p>
+        <p>Stato: <strong>${card.status === "owned" ? "In inventario" : card.status === "sold" ? "Venduta" : "Da valutare"}</strong></p>
+        <div class="item-actions">
+          ${card.status !== "sold" ? `<button class="secondary" data-sell="${card.id}">Registra vendita</button>` : ""}
+          <button class="danger" data-delete="${card.id}">Elimina</button>
+        </div>
+      </article>
+    `).join("");
+  }
+
+  const history = document.getElementById("history");
+  if (!state.history.length) {
+    history.innerHTML = '<p class="muted">Nessun movimento registrato.</p>';
+  } else {
+    history.innerHTML = [...state.history].reverse().map(item => `
+      <article class="item">
+        <strong>${safeText(item.description)}</strong>
+        <p>${safeText(item.date)} · ${safeText(item.type)}</p>
+        <p>${euros(item.amount)}${item.type === "sale" ? " · Profitto registrato: " + euros(item.profit) : ""}</p>
+      </article>
+    `).join("");
+  }
+}
+
+document.getElementById("saveSettings").addEventListener("click", () => {
+  const capital = value("capital");
+  const reservePct = value("reservePct");
+
+  if (capital < 0 || reservePct < 0 || reservePct > 100) {
+    alert("Inserisci un capitale non negativo e una riserva tra 0 e 100%.");
+    return;
+  }
+
+  state.capital = capital;
+  state.reservePct = reservePct;
+  saveState();
+});
+
+["buy", "sell", "costs", "fee", "margin"].forEach(id => {
+  document.getElementById(id).addEventListener("input", calculate);
+});
+
+document.getElementById("addCard").addEventListener("click", () => {
+  const name = document.getElementById("name").value.trim();
+  const result = calculate();
+  if (!name || !result) {
+    alert("Inserisci il nome della carta e controlla i valori.");
+    return;
+  }
+
+  if (result.buy <= 0 || result.sell <= 0) {
+    alert("Inserisci prezzi maggiori di zero.");
+    return;
+  }
+
+  if (result.buy > Math.max(0, availableCash() -
+      state.capital * state.reservePct / 100)) {
+    if (!confirm("Questo acquisto supera il budget disponibile dopo la riserva. Vuoi salvare la carta solo come opportunità da valutare?")) return;
+    state.cards.push({
+      id: crypto.randomUUID(),
+      name, buy: result.buy, sell: result.sell,
+      estimate: result.profit, status: "watch"
+    });
+  } else {
+    state.cards.push({
+      id: crypto.randomUUID(),
+      name, buy: result.buy, sell: result.sell,
+      estimate: result.profit, status: "watch"
+    });
+  }
+
+  saveState();
+  document.getElementById("name").value = "";
+});
+
+document.getElementById("cards").addEventListener("click", event => {
+  const sellButton = event.target.closest("[data-sell]");
+  const deleteButton = event.target.closest("[data-delete]");
+
+  if (sellButton) {
+    const card = state.cards.find(x => x.id === sellButton.dataset.sell);
+    if (!card || card.status === "sold") return;
+
+    const amountText = prompt(
+      "Quanto hai incassato realmente dalla vendita? Inserisci l'importo in euro."
+    );
+    if (amountText === null) return;
+
+    const amount = Number(amountText.replace(",", "."));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      alert("Importo non valido.");
+      return;
+    }
+
+    const fee = amount * 0.05;
+    const profit = amount - fee - card.buy;
+    const date = new Date().toISOString().slice(0, 10);
+
+    card.status = "sold";
+    state.history.push({
+      id: crypto.randomUUID(),
+      type: "sale",
+      description: "Vendita: " + card.name,
+      date,
+      amount,
+      profit
+    });
+
+    saveState();
+  }
+
+  if (deleteButton && confirm("Eliminare questa carta?")) {
+    state.cards = state.cards.filter(x => x.id !== deleteButton.dataset.delete);
+    saveState();
+  }
+});
+
+document.getElementById("export").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(state, null, 2)], {
+    type: "application/json"
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "pokeflip-backup.json";
+  link.click();
+  URL.revokeObjectURL(url);
+});
+
+render();
+calculate();
+</script>
+</body>
+</html>
