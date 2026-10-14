@@ -205,8 +205,8 @@
 
 const STORAGE_KEY = "pokeflip_data_v1";
 
-const SUPABASE_URL =https://ukjgcayqjdokagekplws.supabase.co/rest/v1/;
-const SUPABASE_KEY = sb_publishable_0e08WjrKUppbHiRvHjD7pA_FaN5X7W7;
+const SUPABASE_URL ="https://ukjgcayqjdokagekplws.supabase.co";
+const SUPABASE_KEY = "sb_publishable_0e08WjrKUppbHiRvHjD7pA_FaN5X7W7";
 
 const sb = window.supabase.createClient(
   SUPABASE_URL,
@@ -448,7 +448,6 @@ async function initAuth() {
   } catch (error) {
     setCloudStatus("Errore connessione: " + error.message);
   }
-}
 }
 
 function euros(value) {
