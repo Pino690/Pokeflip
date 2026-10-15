@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b1020">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-title" content="Rivendex">
+<link rel="stylesheet" href="stile.css">
+<title>Rivendex – Watchlist</title>
+</head>
+<body>
+<main class="wrap">
+<section class="panel"><h2>👁 Watchlist</h2>
+<p class="small">Segui una carta dalla sua pagina e scegli una soglia di prezzo. I prezzi si aggiornano quando apri questa pagina o la home: gli avvisi compaiono qui e in home, ma <strong>non arrivano notifiche quando l'app è chiusa</strong>. Prezzi di riferimento Cardmarket, aggiornati una volta al giorno.</p>
+<button class="secondary" id="refresh" type="button">Aggiorna i prezzi ora</button>
+<p id="wstatus" class="small muted"></p></section>
+<div id="wl" class="cards"></div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="comune.js"></script>
+<script src="giochi.js"></script>
+<script src="watch.js"></script>
+<script>
+let rows=[];
+function draw(){
+  $("wl").innerHTML=rows.length?rows.map(w=>`<article class="item ${below(w)?"hit":""}"><h3>${esc(w.card_name)} <span class="small muted">${esc((GAMES[w.game]||{}).label||w.game)}</span></h3>
+  <p>Soglia: <strong>${eur(w.target)}</strong> · Ultimo prezzo: <strong>${w.last_price!=null?eur(w.last_price):"non disponibile"}</strong></p>
+  <p class="small ${below(w)?"green":"muted"}">${below(w)?"🔔 Sotto la tua soglia!":"In attesa"}${w.last_checked?" · aggiornato "+esc(w.last_checked.slice(0,16).replace("T"," ")):""}</p>
+  <div class="acts"><a class="lnkbtn" href="carta.html?g=${encodeURIComponent(w.game)}&id=${encodeURIComponent(w.card_id)}">Apri la carta</a><button class="secondary" data-t="${esc(w.id)}">Cambia soglia</button><button class="danger" data-d="${esc(w.id)}" style="grid-column:1/-1">Rimuovi</button></div></article>`).join(""):'<p class="muted">Non segui ancora nessuna carta. Apri una carta e premi "Segui questa carta".</p>';
+}
+async function init(){
+  if(!user){rows=[];$("wl").innerHTML='<p class="muted">Accedi per usare la watchlist.</p>';return}
+  try{rows=await loadWatch();draw();await upd()}catch(e){$("wl").innerHTML='<p class="red">Errore: '+esc(e.message)+'</p>'}
+}
+async function upd(){
+  if(!rows.length)return;
+  $("wstatus").textContent="Aggiorno i prezzi...";
+  await refreshWatch(rows,draw);draw();$("wstatus").textContent="Prezzi aggiornati.";
+}
+window.onAuth=init;
+$("refresh").onclick=()=>user?upd():alert("Accedi prima.");
+$("wl").onclick=async e=>{
+  const t=e.target.closest("[data-t]"),d=e.target.closest("[data-d]");
+  if(t){const w=rows.find(x=>x.id===t.dataset.t),v=+prompt("Nuova soglia (€)",w.target);if(!(v>0))return;
+    const{error}=await sb.from("watchlist").update({target:v}).eq("id",w.id);if(error)return alert("Errore: "+error.message);w.target=v;draw()}
+  if(d&&confirm("Rimuovere questa carta dalla watchlist?")){const{error}=await sb.from("watchlist").delete().eq("id",d.dataset.d);if(error)return alert("Errore: "+error.message);rows=rows.filter(x=>x.id!==d.dataset.d);draw()}
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b1020">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-title" content="Rivendex">
+<link rel="stylesheet" href="stile.css">
+<title>Rivendex – Carta</title>
+</head>
+<body>
+<main class="wrap">
+<p><a class="lnk" href="javascript:history.back()">← Indietro</a></p>
+<section class="panel" id="info"><p class="muted">Caricamento...</p></section>
+<section class="panel" style="margin-top:14px">
+<h2>🧮 Calcolatore</h2>
+<p class="small">Budget disponibile dopo la riserva: <strong id="budget"></strong></p>
+<label for="name">Nome carta</label><input id="name">
+<label for="buy">Prezzo d'acquisto (€)</label><input id="buy" type="number" min="0" step="0.01" value="10">
+<label for="sell">Prezzo di rivendita stimato (€)</label><input id="sell" type="number" min="0" step="0.01" value="15">
+<div class="row"><div><label for="costs">Spedizione e costi (€)</label><input id="costs" type="number" min="0" step="0.01" value="1"></div><div><label for="fee">Commissioni (%)</label><input id="fee" type="number" min="0" max="100" step="0.1" value="8"></div></div>
+<label for="margin">Margine obiettivo (%)</label><input id="margin" type="number" min="0" value="15">
+<div class="result"><div class="muted">Profitto netto stimato</div><strong id="estimate"></strong><p id="maxPrice"></p></div>
+<div class="row"><button class="secondary" id="addWatch" style="margin-top:12px">Da valutare</button><button class="primary" id="addOwned">Ho comprato</button></div>
+<p><a class="lnk" id="share" href="#">Condividi come idea nella community →</a></p>
+</section>
+<section class="panel" id="wPanel" style="margin-top:14px"><h2>👁 Segui questa carta</h2>
+<p class="small">Ti segnaliamo quando il prezzo di riferimento scende sotto la soglia (controllo all'apertura dell'app).</p>
+<label for="wTarget">Avvisami quando scende sotto (€)</label><input id="wTarget" type="number" min="0" step="0.01">
+<button class="primary" id="wAdd" type="button">Aggiungi alla watchlist</button></section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="comune.js"></script>
+<script src="giochi.js"></script>
+<script src="carta.js"></script>
+<script>
+const P=new URLSearchParams(location.search),GAME=P.get("g"),G=GAMES[GAME],cid=P.get("id");
+function render(){$("budget").textContent=eur(budget())}
+function show(c){window.curCard=c;
+  $("info").innerHTML=`<div class="res">${c.image?`<img src="${esc(c.image)}" alt="" onerror="imgFb(this)">`:'<div class="ph">🃏</div>'}<div><h2>${esc(c.name)}</h2><p>${esc(G.label)} · ${esc(c.set)}${c.number?" · #"+esc(c.number):""}${c.rarity?" · "+esc(c.rarity):""}</p>${c.price?`<p>Prezzo di riferimento: <strong>${eur(c.price.v)}</strong> <span class="small muted">${esc(c.price.l)}${c.price.est?" (stima)":""}</span></p>`:'<p class="muted">Prezzo non disponibile: inseriscilo a mano.</p>'}${c.low?`<p class="small">Offerta più bassa di riferimento: ${eur(c.low)} (aggiornata una volta al giorno)</p>`:""}<a class="lnk" href="${esc(c.link)}" target="_blank" rel="noopener noreferrer">Cerca le offerte su Cardmarket</a></div></div>`;
+  $("name").value=c.name+(c.set?" · "+c.set:"")+(c.number?" #"+c.number:"");
+  if(c.price)$("sell").value=c.price.v;
+  calc();
+}
+(async()=>{
+  if(!G){location.replace("index.html");return}
+  if(P.get("manual")){$("info").innerHTML=`<h2>${esc(G.label)}</h2><p class="muted">Inserisci a mano nome e prezzi.</p>`;calc();return}
+  try{let c=null;try{c=JSON.parse(sessionStorage.getItem("c:"+GAME+":"+cid))}catch{}c=c||await G.get(cid);show(c)}
+  catch(e){$("info").innerHTML='<p class="red">Carta non caricata ('+esc(e.message)+'). Torna indietro e riprova.</p>';calc()}
+})();
+$("share").onclick=e=>{e.preventDefault();location.href="community.html?"+new URLSearchParams({game:GAME,card:$("name").value,buy:$("buy").value,sell:$("sell").value,costs:$("costs").value,fee:$("fee").value})};
+$("wAdd").onclick=async()=>{
+  if(!user)return alert("Accedi per usare la watchlist.");
+  const t=+$("wTarget").value;if(!(t>0))return alert("Inserisci una soglia maggiore di zero.");
+  const c=window.curCard;if(!c)return alert("La watchlist funziona solo per carte trovate con la ricerca.");
+  const{error}=await sb.from("watchlist").upsert({user_id:user.id,game:GAME,card_id:c.id,card_name:(c.name+(c.set?" · "+c.set:"")).slice(0,120),target:t,last_price:c.price?.v??null,last_checked:new Date().toISOString()},{onConflict:"user_id,game,card_id"});
+  alert(error?"Errore: "+error.message:"Carta aggiunta alla watchlist.");
+};
+render();
+</script>
+</body>
+</html>
