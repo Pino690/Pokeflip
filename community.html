@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b1020">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-title" content="Rivendex">
+<link rel="stylesheet" href="stile.css">
+<title>Rivendex – Community</title>
+</head>
+<body>
+<main class="wrap">
+<section class="panel"><h2>💬 Idee di vendita</h2>
+<p class="small">Condividi un'idea e ricevi opinioni. Vietati link, email, contatti e vendite dirette. Non è consulenza finanziaria: valuta sempre da solo.</p>
+<div id="comGate"></div>
+<div id="ideaForm" hidden>
+<label for="ideaGame">Gioco</label><select id="ideaGame"><option value="pokemon">Pokémon</option><option value="magic">Magic</option><option value="yugioh">Yu-Gi-Oh!</option><option value="onepiece">One Piece</option><option value="dragonball">Dragon Ball</option><option value="naruto">Naruto</option></select>
+<label for="ideaCard">Carta</label><input id="ideaCard" maxlength="80">
+<div class="row"><div><label for="ideaBuy">Acquisto (€)</label><input id="ideaBuy" type="number" min="0" step="0.01"></div><div><label for="ideaSell">Rivendita stimata (€)</label><input id="ideaSell" type="number" min="0" step="0.01"></div></div>
+<div class="row"><div><label for="ideaCosts">Costi (€)</label><input id="ideaCosts" type="number" min="0" step="0.01" value="1"></div><div><label for="ideaFee">Commissioni (%)</label><input id="ideaFee" type="number" min="0" max="100" step="0.1" value="8"></div></div>
+<label for="ideaNote">Perché secondo te funziona? (max 500 caratteri)</label><textarea id="ideaNote" maxlength="500"></textarea>
+<label><input id="ideaOwns" type="checkbox">Possiedo già questa carta</label>
+<button class="primary" id="ideaPublish" type="button">Pubblica l'idea</button></div></section>
+<label for="gameFilter" style="margin-top:14px">Filtra per gioco</label>
+<select id="gameFilter"><option value="">Tutti</option><option value="pokemon">Pokémon</option><option value="magic">Magic</option><option value="yugioh">Yu-Gi-Oh!</option><option value="onepiece">One Piece</option><option value="dragonball">Dragon Ball</option><option value="naruto">Naruto</option></select>
+<div id="feed" class="cards"></div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="comune.js"></script>
+<script src="community.js"></script>
+<script>
+$("gameFilter").onchange=()=>{if(user)loadFeed()};
+{const P=new URLSearchParams(location.search),m={ideaGame:"game",ideaCard:"card",ideaBuy:"buy",ideaSell:"sell",ideaCosts:"costs",ideaFee:"fee"};
+for(const[id,k]of Object.entries(m))if(P.get(k)!==null)$(id).value=P.get(k).slice(0,80);
+if(P.get("game"))$("gameFilter").value=""}
+</script>
+</body>
+</html>

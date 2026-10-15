@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b1020">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-title" content="Rivendex">
+<link rel="stylesheet" href="stile.css">
+<title>Rivendex – Il mio conto</title>
+</head>
+<body>
+<main class="wrap">
+<div class="stats">
+<div class="stat"><span>Liquidità disponibile</span><strong id="cash"></strong></div>
+<div class="stat"><span>Riserva minima</span><strong id="reserve"></strong></div>
+<div class="stat"><span>Carte in inventario</span><strong id="count"></strong></div>
+<div class="stat"><span>Profitto realizzato</span><strong id="profit"></strong></div>
+</div>
+<div class="grid">
+<section class="panel full"><h2>⚙️ Capitale e protezione</h2>
+<label for="capital">Capitale iniziale (€)</label><input id="capital" type="number" min="0" step="0.01">
+<label for="reservePct">Riserva da mantenere (%)</label><input id="reservePct" type="number" min="0" max="100">
+<button class="primary" id="saveSettings">Salva impostazioni</button>
+<div class="result"><div class="muted">Budget massimo per nuovi acquisti</div><strong id="budget"></strong></div></section>
+<section class="panel full"><h2>📦 Inventario</h2><div id="cards" class="cards"></div></section>
+<section class="panel full"><h2>🧾 Movimenti</h2><div id="history" class="cards"></div><button class="secondary" id="export" style="margin-top:12px">Esporta backup JSON</button></section>
+</div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="comune.js"></script>
+<script src="conto.js"></script>
+</body>
+</html>
