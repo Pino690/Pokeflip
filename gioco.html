@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b1020">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-title" content="Rivendex">
+<link rel="stylesheet" href="stile.css">
+<title>Rivendex – Cerca carte</title>
+</head>
+<body>
+<main class="wrap">
+<p><a class="lnk" href="index.html">← Tutti i giochi</a></p>
+<h2 id="gtitle"></h2>
+<section id="manual" class="panel" hidden><p>Per questo gioco non c'è ancora una fonte di prezzi automatica: inserisci tu nome e prezzi nel calcolatore.</p><a class="lnk" id="manualLink" href="#">Apri il calcolatore →</a></section>
+<section id="searchBox" class="panel"><div class="srch"><input id="q" placeholder="Cerca per nome..." enterkeyhint="search"><button class="primary" id="go" type="button" style="margin:0">Cerca</button></div><div id="results" class="cards"></div></section>
+<h3 id="newsTitle" style="margin-top:20px">Nuove uscite</h3><div id="news" class="cards"></div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="comune.js"></script>
+<script src="giochi.js"></script>
+<script>
+const g=new URLSearchParams(location.search).get("g"),G=GAMES[g];let list=[];
+if(!G)location.replace("index.html");
+else{
+  $("gtitle").textContent=G.emoji+" "+G.label;
+  const tile=c=>{list.push(c);return `<a class="item res" href="carta.html?g=${encodeURIComponent(g)}&id=${encodeURIComponent(c.id)}" data-i="${list.length-1}">${c.image?`<img src="${esc(c.image)}" alt="" loading="lazy" onerror="imgFb(this)">`:'<div class="ph">🃏</div>'}<div><h3>${esc(c.name)}</h3><p>${esc(c.set)}${c.number?" · #"+esc(c.number):""}${c.rarity?" · "+esc(c.rarity):""}</p>${c.price?`<p><strong>${eur(c.price.v)}</strong> <span class="small muted">${esc(c.price.l)}${c.price.est?" (stima)":""}</span></p>`:""}</div></a>`};
+  document.addEventListener("click",e=>{const a=e.target.closest("a[data-i]"),c=a&&list[a.dataset.i];if(c&&c.cur)try{sessionStorage.setItem("c:"+g+":"+c.id,JSON.stringify(c))}catch{}});
+  let lastQ="",page=0;
+  const show=(r,append)=>{
+    const html=r.map(tile).join("")+(r.failed?`<p class="small muted">${r.failed} carte non caricate: riprova tra poco.</p>`:"");
+    $("more")?.remove();
+    if(append)$("results").insertAdjacentHTML("beforeend",html);
+    else $("results").innerHTML=r.length?`<p class="small muted">${r.total||r.length} carte trovate</p>`+html:'<p class="muted">Nessun risultato. Prova con il nome in inglese.</p>';
+    if(r.more)$("results").insertAdjacentHTML("beforeend",'<button class="secondary" id="more" type="button">Mostra altre carte</button>');
+  };
+  const search=async()=>{
+    const q=$("q").value.replace(/[^\p{L}\p{N} ]/gu,"").trim();
+    if(q.length<2){$("results").innerHTML='<p class="muted">Scrivi almeno 2 lettere.</p>';return}
+    lastQ=q;page=0;
+    $("results").innerHTML='<p class="muted">Ricerca in corso...</p>';
+    try{show(await G.search(q,0),false)}
+    catch(e){$("results").innerHTML='<p class="red">Ricerca non riuscita ('+esc(e.message)+'). Riprova tra poco.</p>'}
+  };
+  $("results").addEventListener("click",async e=>{
+    const b=e.target.closest("#more");if(!b)return;
+    b.textContent="Carico...";page++;
+    try{show(await G.search(lastQ,page),true)}catch(err){page--;b.textContent="Mostra altre carte";alert("Errore: "+err.message)}
+  });
+  $("go").onclick=search;$("q").addEventListener("keydown",e=>{if(e.key==="Enter")search()});
+  if(G.manual){$("manual").hidden=false;$("manualLink").href="carta.html?g="+g+"&manual=1";$("searchBox").hidden=true;$("newsTitle").hidden=true;$("news").hidden=true}
+  else (G.news?G.news():Promise.resolve(null)).then(n=>{$("news").innerHTML=n&&n.cards.length?`<p class="small muted">${esc(n.title)}</p>`+n.cards.map(tile).join(""):'<p class="small muted">Le nuove uscite non sono ancora disponibili per questo gioco: usa la ricerca.</p>'}).catch(()=>{$("news").innerHTML='<p class="small muted">Nuove uscite non disponibili al momento.</p>'});
+}
+</script>
+</body>
+</html>
